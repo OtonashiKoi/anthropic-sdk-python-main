@@ -16,23 +16,36 @@ let groups = {
 };
 let currentGroup = 'default';
 
-function createNewGroup() {
-    const newGroupName = document.getElementById('newGroupInput').value.trim();
-    if (newGroupName && !groups[newGroupName]) {
-        groups[newGroupName] = [];
-        const option = document.createElement('option');
-        option.value = newGroupName;
-        option.textContent = newGroupName;
-        document.getElementById('groupSelect').appendChild(option);
-        document.getElementById('newGroupInput').value = '';
+function updateGroupTabs() {
+    const groupTabs = document.getElementById('groupTabs');
+    if (!groupTabs) {
+        console.error('无法找到 groupTabs 元素');
+        return;
+    }
+    groupTabs.innerHTML = '';
+    Object.keys(groups).forEach(groupName => {
+        const tab = document.createElement('div');
+        tab.className = `group-tab ${groupName === currentGroup ? 'active' : ''}`;
+        tab.textContent = groupName;
+        tab.onclick = () => switchGroup(groupName);
+        groupTabs.appendChild(tab);
+    });
+}
+
+function switchGroup(groupName) {
+    currentGroup = groupName;
+    updateGroupTabs();
+    updateChatHistory();
+}
+
+function createNewGroup(groupName) {
+    if (groupName && !groups[groupName]) {
+        groups[groupName] = [];
+        updateGroupTabs();
+        switchGroup(groupName);
         saveChat();
     }
 }
-
-document.getElementById('groupSelect').addEventListener('change', function(e) {
-    currentGroup = e.target.value;
-    updateChatHistory();
-});
 
 function updateChatHistory() {
     const chatHistory = document.getElementById('chatHistory');
@@ -120,7 +133,6 @@ async function sendMessage() {
                 }
             }
 
-            // 確保消息列表以 "user" 開始，以 "assistant" 結束
             if (messagesToSend[0].role !== 'user') {
                 messagesToSend.shift();
             }
@@ -129,10 +141,9 @@ async function sendMessage() {
             }
         }
 
-        // 添加新的用戶消息
         messagesToSend.push({ role: 'user', content: message });
 
-        console.log('Messages to send:', messagesToSend); // 用於調試
+        console.log('Messages to send:', messagesToSend);
 
         const response = await fetch(API_URL, {
             method: 'POST',
@@ -171,7 +182,7 @@ async function sendMessage() {
 function addMessageToChat(role, content) {
     groups[currentGroup].push({ role, content });
     updateChatHistory();
-    saveChat(); // 每次添加消息後保存
+    saveChat();
 }
 
 document.getElementById('userInput').addEventListener('keypress', function(e) {
@@ -202,38 +213,85 @@ function loadChatFromFile(file) {
     reader.onload = function(e) {
         try {
             const loadedGroups = JSON.parse(e.target.result);
-            groups = loadedGroups;
-            updateGroupSelect();
-            updateChatHistory();
-            saveChat(); // 保存到 localStorage
-            alert('聊天記錄已成功載入並保存到本地存儲');
+            // 驗證載入的數據結構
+            if (typeof loadedGroups === 'object' && Object.keys(loadedGroups).length > 0) {
+                groups = loadedGroups;
+                updateGroupSelect();
+                updateChatHistory();
+                saveChat();
+                alert('聊天記錄已成功載入並保存到本地存儲');
+            } else {
+                throw new Error('無效的聊天記錄格式');
+            }
         } catch (error) {
             console.error('Error parsing JSON:', error);
-            alert('載入聊天記錄時發生錯誤');
+            alert('載入聊天記錄時發生錯誤: ' + error.message);
         }
     };
     reader.readAsText(file);
 }
 
 function updateGroupSelect() {
-    const groupSelect = document.getElementById('groupSelect');
-    groupSelect.innerHTML = '';
-    Object.keys(groups).forEach(groupName => {
-        const option = document.createElement('option');
-        option.value = groupName;
-        option.textContent = groupName;
-        groupSelect.appendChild(option);
-    });
+    updateGroupTabs(); // 使用新的群组标签更新函数
     currentGroup = Object.keys(groups)[0] || 'default';
-    groupSelect.value = currentGroup;
 }
 
-// 頁面加載時自動載入聊天記錄
-window.onload = function() {
+document.getElementById('newGroupBtn').addEventListener('click', function() {
+    document.getElementById('newGroupModal').classList.remove('hidden');
+});
+
+document.getElementById('createGroupBtn').addEventListener('click', function() {
+    const newGroupName = document.getElementById('newGroupInput').value.trim();
+    if (newGroupName) {
+        createNewGroup(newGroupName);
+        document.getElementById('newGroupInput').value = '';
+        document.getElementById('newGroupModal').classList.add('hidden');
+    }
+});
+
+// 點擊模態框外部關閉模態框
+window.onclick = function(event) {
+    const modal = document.getElementById('newGroupModal');
+    if (event.target == modal) {
+        modal.classList.add('hidden');
+    }
+}
+function clearChat() {
+    if (confirm('確定要清除所有聊天記錄嗎？此操作不可撤銷。')) {
+        groups = { default: [] };
+        currentGroup = 'default';
+        localStorage.removeItem('claudeChatGroups');
+        updateGroupTabs();
+        updateChatHistory();
+        console.log('聊天記錄已清除');
+        alert('所有聊天記錄已清除');
+    }
+}
+
+// 確保將這個函數添加到 window 對象上，使其可以從 HTML 中調用
+window.clearChat = clearChat;
+function exportChat() {
+    const chatData = JSON.stringify(groups, null, 2); // 使用縮進來格式化 JSON
+    const blob = new Blob([chatData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'chat_export_' + new Date().toISOString().split('T')[0] + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// 確保將這個函數添加到 window 對象上，使其可以從 HTML 中調用
+window.exportChat = exportChat;
+// 初始化函數
+function init() {
     if (!loadChat()) {
         console.log('沒有找到保存的聊天記錄');
     }
-};
+    updateGroupTabs();
+}
 
-// 初始化
-updateChatHistory();
+// 頁面加載完成後初始化
+window.addEventListener('DOMContentLoaded', init);

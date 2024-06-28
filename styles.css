@@ -43,3 +43,38 @@
 .copy-button:hover {
     background-color: #2d3748;
 }
+.group-management {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+}
+.group-tab {
+    cursor: pointer;
+    padding: 0.5rem 1rem;
+    margin-right: 0.5rem;
+    border-radius: 0.5rem;
+    background-color: #4B5563;
+    color: #D1D5DB;
+    transition: all 0.3s ease;
+}
+.group-tab:hover {
+    background-color: #6B7280;
+}
+.group-tab.active {
+    background-color: #3B82F6;
+    color: white;
+}
+#newGroupBtn {
+    transition: all 0.3s ease;
+}
+#newGroupBtn:hover {
+    background-color: #059669;
+}
+.modal {
+    transition: opacity 0.3s ease;
+}
+.modal-content {
+    transition: all 0.3s ease;
+}
